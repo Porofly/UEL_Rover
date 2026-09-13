@@ -41,7 +41,7 @@ OpenRB-150/
    - **micro_ros_arduino**: ROS 2 **Jazzy** 릴리스 zip을 내려받아
      `Sketch → Include Library → Add .ZIP Library`로 수동 설치.
      https://github.com/micro-ROS/micro_ros_arduino/releases
-3. `openrb150_motor/openrb150_motor.ino`를 열고 보드를 OpenRB-150으로 선택한 뒤 업로드.
+3. `OpenRB-150.ino`를 열고 보드를 OpenRB-150으로 선택한 뒤 업로드.
 4. 업로드 후 **시리얼 모니터를 열지 않는다.** USB 시리얼이 micro-ROS 트랜스포트라
    Serial 출력이 통신을 오염시킨다. 같은 이유로 펌웨어 안에서도 `Serial.print`를
    쓰지 않는다.
@@ -78,7 +78,7 @@ RC / STOP 제어는 micro-ROS 연결 상태와 무관하게 매 루프 먼저 �
 
 ## 배포 전 확인할 상수
 
-모두 `openrb150_motor.ino` 상단 `#define`에 있다.
+모두 `OpenRB-150.ino` 상단 `#define`에 있다.
 
 | 상수 | 현재 값 | 확인 사항 |
 |---|---|---|

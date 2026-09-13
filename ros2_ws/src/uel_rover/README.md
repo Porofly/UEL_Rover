@@ -97,9 +97,9 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-`micro_ros_agent` 는 apt 패키지가 아니라 별도 워크스페이스에서 소스 빌드한다
-(micro_ros_setup 의 `create_agent_ws.sh` / `build_agent.sh`). 그 워크스페이스의
-`install/local_setup.bash` 도 함께 source 해야 launch 가 agent 를 찾는다.
+`micro_ros_agent` 는 apt 패키지가 아니라 별도 워크스페이스(`microros_ws/`, 저장소 루트)에서
+소스 빌드한다. 저장소 루트의 `scripts/setup.sh` 가 위 절차와 agent 빌드를 한 번에 처리한다.
+`microros_ws/install/local_setup.bash` 도 함께 source 해야 launch 가 agent 를 찾는다.
 
 ## 실행
 
