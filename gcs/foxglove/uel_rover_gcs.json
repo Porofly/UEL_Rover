@@ -1,0 +1,99 @@
+{
+  "configById": {
+    "DiagnosticSummary!rover": {
+      "minLevel": 0,
+      "pinnedIds": [],
+      "hardwareIdFilter": "",
+      "topicToRender": "/diagnostics",
+      "sortByLevel": true
+    },
+    "DiagnosticStatusPanel!rover": {
+      "topicToRender": "/diagnostics",
+      "selectedHardwareId": "OpenRB-150",
+      "selectedName": "uel_rover/control_board",
+      "splitFraction": 0.5
+    },
+    "Indicator!drive_mode": {
+      "path": "/drive_mode.data",
+      "style": "background",
+      "fallbackColor": "#6b6b6b",
+      "fallbackLabel": "NO LINK",
+      "rules": [
+        { "operator": "=", "rawValue": "AUTO", "color": "#2e7d32", "label": "AUTO" },
+        { "operator": "=", "rawValue": "RC",   "color": "#f9a825", "label": "RC" },
+        { "operator": "=", "rawValue": "STOP", "color": "#c62828", "label": "STOP" }
+      ]
+    },
+    "Plot!wheel_rpm": {
+      "paths": [
+        { "value": "/wheel_velocity.data[0]", "enabled": true, "timestampMethod": "receiveTime", "label": "left rpm" },
+        { "value": "/wheel_velocity.data[1]", "enabled": true, "timestampMethod": "receiveTime", "label": "right rpm" }
+      ],
+      "minYValue": -60,
+      "maxYValue": 60,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 30
+    },
+    "Teleop!cmd_vel": {
+      "topic": "/cmd_vel",
+      "publishRate": 10,
+      "upButton":    { "field": "linear-x",  "value": 0.15 },
+      "downButton":  { "field": "linear-x",  "value": -0.15 },
+      "leftButton":  { "field": "angular-z", "value": 0.6 },
+      "rightButton": { "field": "angular-z", "value": -0.6 }
+    },
+    "RawMessages!cmd_vel_out": {
+      "topicPath": "/cmd_vel_out",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false
+    },
+    "RosOut!log": {
+      "searchTerms": [],
+      "minLogLevel": 2,
+      "nameFilter": {}
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": { "speed": 1 },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "direction": "column",
+      "first": "DiagnosticSummary!rover",
+      "second": "DiagnosticStatusPanel!rover",
+      "splitPercentage": 30
+    },
+    "second": {
+      "direction": "column",
+      "first": {
+        "direction": "row",
+        "first": "Indicator!drive_mode",
+        "second": "Plot!wheel_rpm",
+        "splitPercentage": 25
+      },
+      "second": {
+        "direction": "row",
+        "first": "Teleop!cmd_vel",
+        "second": {
+          "direction": "column",
+          "first": "RawMessages!cmd_vel_out",
+          "second": "RosOut!log",
+          "splitPercentage": 40
+        },
+        "splitPercentage": 40
+      },
+      "splitPercentage": 45
+    },
+    "splitPercentage": 38
+  }
+}

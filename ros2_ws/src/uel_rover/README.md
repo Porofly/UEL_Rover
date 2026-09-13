@@ -11,8 +11,12 @@ launch 하나로 이루어진다. 오도메트리·URDF·센서·Nav2 같은 부
 uel_rover/
 ├── CMakeLists.txt
 ├── package.xml
-├── config/rover.yaml            # commander / monitor 파라미터
-├── launch/bringup.launch.py     # micro_ros_agent + commander + monitor
+├── config/
+│   ├── rover.yaml               # commander / monitor 파라미터
+│   └── foxglove_bridge.yaml     # GCS 연결(foxglove_bridge) 파라미터
+├── launch/
+│   ├── bringup.launch.py        # micro_ros_agent + commander + monitor
+│   └── gcs.launch.py            # foxglove_bridge (GCS 연결, 선택)
 ├── src/
 │   ├── commander.cpp            # 이동 명령 → 제어보드
 │   └── monitor.cpp              # 제어보드 상태 감시 → /diagnostics
@@ -113,6 +117,20 @@ ros2 launch uel_rover bringup.launch.py start_agent:=false     # agent 를 따�
 | `params_file` | `config/rover.yaml` |
 
 시리얼 장치 접근에는 `dialout` 그룹이 필요하다.
+
+### GCS 연결 (선택)
+
+```bash
+sudo apt install ros-jazzy-foxglove-bridge      # 최초 1회
+ros2 launch uel_rover gcs.launch.py             # 기본 ws://0.0.0.0:8765
+ros2 launch uel_rover gcs.launch.py port:=9000
+```
+
+GCS PC 의 Foxglove 앱이 `ws://<로버 IP>:8765` 로 접속해 `/diagnostics` 등을 보고
+Teleop 패널로 `/cmd_vel` 을 발행한다. [config/foxglove_bridge.yaml](config/foxglove_bridge.yaml)
+의 `client_topic_whitelist` 는 GCS 발행을 `/cmd_vel` 로 제한하려는 설정이지만, apt 의
+foxglove_bridge 3.5.0 은 이 파라미터를 적용하지 않는다(설정 파일 주석 참고).
+앱 설치·접속·레이아웃은 저장소 루트의 [gcs/README.md](../../../gcs/README.md) 참고.
 
 ## 동작 확인
 

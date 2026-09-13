@@ -19,6 +19,8 @@
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <!-- gcs.launch.py (GCS 연결). apt: ros-jazzy-foxglove-bridge -->
+  <exec_depend>foxglove_bridge</exec_depend>
   <!-- micro_ros_agent 는 apt 가 아니라 별도 워크스페이스에서 소스 빌드하므로
        rosdep 키로 선언하지 않는다. README 참고. -->
 

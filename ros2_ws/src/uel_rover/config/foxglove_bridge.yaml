@@ -1,0 +1,22 @@
+# ═══════════════════════════════════════════════════════════════
+#  foxglove_bridge 파라미터 (gcs.launch.py)
+#  port / address 는 launch 인자가 덮어쓴다.
+#  전체 목록: https://github.com/foxglove/foxglove-sdk/tree/main/ros/src/foxglove_bridge
+# ═══════════════════════════════════════════════════════════════
+foxglove_bridge:
+  ros__parameters:
+    port: 8765
+    address: "0.0.0.0"
+
+    # GCS 에 보여줄 토픽 (정규식 목록). 기본은 전부.
+    # 무선 대역폭을 아끼려면 필요한 것만 남긴다. 예:
+    # topic_whitelist: ["^/diagnostics$", "^/drive_mode$", "^/wheel_velocity$", "^/cmd_vel", "^/rosout$"]
+    topic_whitelist: [".*"]
+
+    # GCS 가 발행할 수 있는 토픽 (정규식 목록). 조종 명령 외에는 막으려는 설정.
+    # ※ apt 의 foxglove_bridge 3.5.0(Jazzy)은 이 값을 읽기만 하고 적용하지 않는다.
+    #   (2026-09 ros:jazzy 컨테이너 실측: "(?!)" 로 전부 막아도 클라이언트 발행이 통과.
+    #    소스에서도 파싱한 패턴을 쓰는 곳이 없다.) 즉 현재는 GCS 가 어떤 토픽이든
+    #   발행할 수 있다. 상위 버전에서 고쳐지면 이 설정이 그대로 동작한다.
+    # Nav2 예제를 켜고 GCS 에서 목표점을 찍으려면 "^/goal_pose$", "^/initialpose$" 를 추가.
+    client_topic_whitelist: ["^/cmd_vel$"]
