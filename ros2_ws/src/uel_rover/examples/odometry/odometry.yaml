@@ -1,0 +1,12 @@
+# odom_publisher 파라미터 (기존 rover_params.yaml 에서 가져옴)
+odom_publisher:
+  ros__parameters:
+    # [m] 유효 트랙폭 (skid-steer scrub 포함). 1차 0.981 → 5바퀴 실측 1678.6°/1800° 로 재보정.
+    wheel_base:    0.915
+    # [m] 바퀴 반지름
+    wheel_radius:  0.0877
+    # [rpm] 이 값을 넘는 바퀴 속도는 통신 오류로 보고 버린다 (펌웨어 MAX_RPM 50 의 2배)
+    max_wheel_rpm: 100.0
+# ※ 펌웨어(firmware/OpenRB-150/OpenRB-150.ino)의 WHEEL_BASE 0.30 / WHEEL_RADIUS 0.065 와 다르다.
+#   cmd_vel → RPM 변환(펌웨어)과 RPM → odom 적분(여기)이 같은 값을 써야 명령 속도와
+#   실제 속도가 일치한다. 배포 전에 한쪽으로 통일할 것.

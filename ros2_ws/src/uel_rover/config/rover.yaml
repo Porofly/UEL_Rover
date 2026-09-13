@@ -1,0 +1,23 @@
+# ═══════════════════════════════════════════════════════════════
+#  uel_rover 노드 파라미터
+#  bringup.launch.py 가 commander / monitor 양쪽에 이 파일을 넘긴다.
+# ═══════════════════════════════════════════════════════════════
+
+commander:
+  ros__parameters:
+    # cmd_vel → cmd_vel_out 클램프 상한. 0 이하면 해당 축 클램프 비활성.
+    # 펌웨어 MAX_RPM 50 기준 최대 선속도는 바퀴 반지름 0.0877 m 에서 약 0.46 m/s.
+    max_linear_velocity:  0.26   # [m/s]
+    max_angular_velocity: 1.0    # [rad/s]
+    # 이 시간 동안 cmd_vel 이 없으면 정지 명령을 한 번 보낸다. 0 이하면 비활성.
+    # 제어보드 워치독(500 ms)과 같은 값. 여기서 먼저 잡히면 로그에 남는다.
+    command_timeout: 0.5         # [s]
+
+monitor:
+  ros__parameters:
+    # 제어보드는 50 Hz 로 발행한다. 이 시간 동안 아무 토픽도 없으면 링크 단절.
+    link_timeout: 0.5            # [s]
+    # 펌웨어 MAX_RPM(50)의 2배. 넘으면 측정값이 아니라 통신 오류로 본다.
+    max_wheel_rpm: 100.0         # [rpm]
+    # /diagnostics 발행 주기
+    diagnostics_period: 1.0      # [s]

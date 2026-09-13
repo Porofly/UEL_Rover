@@ -1,0 +1,135 @@
+# uel_rover
+
+로버 제어에 필요한 최소 구성만 담은 ROS 2 (Jazzy) 패키지 템플릿.
+제어보드(OpenRB-150)와 통신하는 두 노드 **commander**, **monitor** 와 이를 띄우는
+launch 하나로 이루어진다. 오도메트리·URDF·센서·Nav2 같은 부가 요소는 포함하지 않고
+[examples/](examples/README.md) 에 참고 구현으로 두었다.
+
+## 구성
+
+```
+uel_rover/
+├── CMakeLists.txt
+├── package.xml
+├── config/rover.yaml            # commander / monitor 파라미터
+├── launch/bringup.launch.py     # micro_ros_agent + commander + monitor
+├── src/
+│   ├── commander.cpp            # 이동 명령 → 제어보드
+│   └── monitor.cpp              # 제어보드 상태 감시 → /diagnostics
+└── examples/                    # 빌드·설치되지 않는 참고 구현
+```
+
+## 데이터 흐름
+
+```
+[상위 제어기: Nav2 / teleop / 사용자 노드]
+        │ /cmd_vel (geometry_msgs/Twist)
+        ▼
+  ┌───────────┐ /cmd_vel_out ┌─────────────────┐  USB 시리얼  ┌────────────┐
+  │ commander │ ───────────▶ │ micro_ros_agent │ ◀──────────▶ │ OpenRB-150 │
+  └───────────┘              └─────────────────┘  (micro-ROS) └────────────┘
+  ┌───────────┐ /wheel_velocity, /drive_mode                        │
+  │  monitor  │ ◀──────────────────────────────────────────────────┘
+  └───────────┘ ──▶ /diagnostics
+```
+
+드라이브 모드(RC / AUTO / STOP) 판정과 게이팅은 제어보드가 단독으로 한다.
+`/cmd_vel_out` 은 AUTO 모드일 때만 모터에 적용되고, RC / STOP 에서는 무시된다.
+따라서 Jetson 쪽 소프트웨어가 어떤 상태이든 조종기 스위치로 즉시 회수할 수 있다.
+
+## 노드
+
+### commander
+
+| 항목 | 내용 |
+|---|---|
+| 구독 | `cmd_vel` (`geometry_msgs/Twist`) |
+| 발행 | `cmd_vel_out` (`geometry_msgs/Twist`) |
+| 동작 | `linear.x`, `angular.z` 만 남기고 상한으로 클램프해 전달. NaN/Inf 는 정지 명령으로 대체. |
+| 타임아웃 | `command_timeout` 동안 새 명령이 없으면 정지 명령을 한 번 보내고 로그를 남긴다. |
+
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| `max_linear_velocity` | 0.26 m/s | 0 이하면 클램프 비활성 |
+| `max_angular_velocity` | 1.0 rad/s | 0 이하면 클램프 비활성 |
+| `command_timeout` | 0.5 s | 0 이하면 비활성 |
+
+commander 는 명령을 반복 발행하지 않는다. 제어보드 워치독(500 ms) 안에 다음
+`cmd_vel` 이 도착해야 계속 움직이므로, 상위 제어기는 주기적으로 발행해야 한다.
+
+### monitor
+
+| 항목 | 내용 |
+|---|---|
+| 구독 | `wheel_velocity` (`std_msgs/Float32MultiArray` `[vL_rpm, vR_rpm]`), `drive_mode` (`std_msgs/String`) |
+| 발행 | `/diagnostics` (`diagnostic_msgs/DiagnosticArray`) |
+| 로그 | 링크 연결/단절, 드라이브 모드 변화, 비물리적 바퀴 속도 |
+
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| `link_timeout` | 0.5 s | 이 시간 동안 수신이 없으면 링크 단절 |
+| `max_wheel_rpm` | 100 rpm | 넘는 값은 통신 오류로 간주 |
+| `diagnostics_period` | 1.0 s | `/diagnostics` 발행 주기 |
+
+`/diagnostics` 상태 `uel_rover/control_board` 의 레벨:
+
+| 레벨 | 조건 |
+|---|---|
+| STALE | 제어보드에서 아직 아무것도 받지 못함 |
+| ERROR | 받다가 `link_timeout` 이상 끊김 |
+| WARN | 직전 주기 동안 비물리적 바퀴 속도가 있었음 |
+| OK | 정상. message 에 현재 드라이브 모드 표시 |
+
+values: `drive_mode`, `wheel_left_rpm`, `wheel_right_rpm`, `wheel_velocity_rate_hz`,
+`wheel_velocity_age_s`, `drive_mode_age_s`, `bad_wheel_samples`.
+
+## 빌드
+
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
+
+`micro_ros_agent` 는 apt 패키지가 아니라 별도 워크스페이스에서 소스 빌드한다
+(micro_ros_setup 의 `create_agent_ws.sh` / `build_agent.sh`). 그 워크스페이스의
+`install/local_setup.bash` 도 함께 source 해야 launch 가 agent 를 찾는다.
+
+## 실행
+
+```bash
+ros2 launch uel_rover bringup.launch.py                       # agent 포함
+ros2 launch uel_rover bringup.launch.py serial_port:=/dev/ttyACM1
+ros2 launch uel_rover bringup.launch.py start_agent:=false     # agent 를 따로 띄울 때
+```
+
+| launch 인자 | 기본값 |
+|---|---|
+| `serial_port` | `/dev/ttyACM0` |
+| `baudrate` | `115200` |
+| `start_agent` | `true` |
+| `params_file` | `config/rover.yaml` |
+
+시리얼 장치 접근에는 `dialout` 그룹이 필요하다.
+
+## 동작 확인
+
+```bash
+ros2 topic echo /diagnostics                 # 링크 상태, 모드, 바퀴 rpm
+ros2 topic echo /drive_mode                  # 조종기 스위치 상태
+# 조종기를 AUTO 로 둔 상태에서
+ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}"
+# 또는
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+## 확장
+
+노드를 추가하려면 `src/` 에 파일을 만들고 `CMakeLists.txt` 의 `add_executable` /
+`target_link_libraries` / `install(TARGETS ...)` 에 넣는다. launch 와 yaml 은
+`launch/`, `config/` 에 두면 디렉터리째 설치된다.
+
+기존 시스템(오도메트리, RealSense, slam_toolbox, Nav2, AMCL)을 되살리는 방법은
+[examples/README.md](examples/README.md) 를 참고한다.

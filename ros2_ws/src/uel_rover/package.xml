@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>uel_rover</name>
+  <version>0.1.0</version>
+  <description>
+    UEL Rover 제어보드(OpenRB-150) 인터페이스 템플릿.
+    Commander(이동 명령 전달)와 Monitor(제어보드 상태 감시) 두 노드로 구성된다.
+  </description>
+  <maintainer email="yeogyeom1@gmail.com">UEL Rover Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <!-- micro_ros_agent 는 apt 가 아니라 별도 워크스페이스에서 소스 빌드하므로
+       rosdep 키로 선언하지 않는다. README 참고. -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
