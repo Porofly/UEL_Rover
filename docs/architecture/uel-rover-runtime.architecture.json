@@ -1,0 +1,384 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "UEL Rover 런타임 아키텍처",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Porofly/UEL_Rover",
+      "revision": "8976c06cb2f77d6771d08195b01006b763582893"
+    },
+    "views": [
+      {
+        "id": "command-path",
+        "label": "주 명령 경로",
+        "focus": [
+          "gcs",
+          "bridge",
+          "commander",
+          "agent",
+          "board",
+          "motors"
+        ],
+        "note": "GCS Teleop 의 /cmd_vel 이 클램프를 거쳐 제어보드의 AUTO 게이트를 통과해 모터에 도달한다."
+      },
+      {
+        "id": "safety-override",
+        "label": "안전 회수 경로",
+        "focus": [
+          "rc",
+          "board",
+          "motors"
+        ],
+        "note": "조종기 CH5 가 모드를 정한다. Jetson 소프트웨어 상태와 무관하게 매 루프 먼저 실행된다."
+      },
+      {
+        "id": "telemetry-return",
+        "label": "텔레메트리 복귀",
+        "focus": [
+          "board",
+          "agent",
+          "monitor",
+          "bridge",
+          "gcs"
+        ],
+        "note": "제어보드 상태가 monitor 에서 /diagnostics 로 요약되어 GCS 에 표시된다."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "gcs",
+      "type": "frontend",
+      "label": "Foxglove 앱",
+      "sublabel": "GCS PC · Teleop 패널",
+      "tag": "외부 앱",
+      "pos": [
+        40,
+        234
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "gcs/foxglove/uel_rover_gcs.json",
+          "line": 45,
+          "end_line": 50,
+          "label": "Teleop 패널 설정"
+        }
+      ]
+    },
+    {
+      "id": "bridge",
+      "type": "backend",
+      "label": "foxglove_bridge",
+      "sublabel": "ws://0.0.0.0:8765",
+      "tag": "apt 패키지",
+      "pos": [
+        280,
+        234
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "ros2_ws/src/uel_rover/launch/gcs.launch.py",
+          "line": 34,
+          "end_line": 38,
+          "label": "bridge 노드 실행"
+        },
+        {
+          "path": "ros2_ws/src/uel_rover/config/foxglove_bridge.yaml",
+          "line": 16,
+          "end_line": 22,
+          "label": "client_topic_whitelist 미적용"
+        }
+      ]
+    },
+    {
+      "id": "commander",
+      "type": "backend",
+      "label": "commander",
+      "sublabel": "클램프 · 타임아웃 0.5 s",
+      "tag": "이 저장소",
+      "pos": [
+        520,
+        234
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "ros2_ws/src/uel_rover/src/commander.cpp",
+          "line": 59,
+          "end_line": 72,
+          "label": "클램프 · NaN 처리"
+        },
+        {
+          "path": "ros2_ws/src/uel_rover/src/commander.cpp",
+          "line": 74,
+          "end_line": 86,
+          "label": "타임아웃 정지"
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "messagebus",
+      "label": "micro_ros_agent",
+      "sublabel": "serial 115200 bps",
+      "tag": "소스 빌드",
+      "pos": [
+        760,
+        234
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "ros2_ws/src/uel_rover/launch/bringup.launch.py",
+          "line": 40,
+          "end_line": 45,
+          "label": "agent 실행 인자"
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "type": "security",
+      "label": "OpenRB-150 펌웨어",
+      "sublabel": "RC / AUTO / STOP 게이트",
+      "tag": "이 저장소",
+      "pos": [
+        1000,
+        234
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "firmware/OpenRB-150/OpenRB-150.ino",
+          "line": 372,
+          "end_line": 401,
+          "label": "모드별 모터 제어"
+        },
+        {
+          "path": "firmware/OpenRB-150/OpenRB-150.ino",
+          "line": 205,
+          "end_line": 222,
+          "label": "/cmd_vel_out 콜백"
+        }
+      ]
+    },
+    {
+      "id": "motors",
+      "type": "external",
+      "label": "다이나믹셀 ×2",
+      "sublabel": "ID 1 좌 · ID 2 우",
+      "pos": [
+        1010,
+        398
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "firmware/OpenRB-150/OpenRB-150.ino",
+          "line": 227,
+          "end_line": 236,
+          "label": "setGoalVelocity"
+        }
+      ]
+    },
+    {
+      "id": "rc",
+      "type": "external",
+      "label": "FlySky 조종기",
+      "sublabel": "FS-iA10B 수신기",
+      "pos": [
+        1010,
+        70
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "firmware/OpenRB-150/OpenRB-150.ino",
+          "line": 129,
+          "end_line": 152,
+          "label": "PWM 인터럽트"
+        },
+        {
+          "path": "firmware/OpenRB-150/OpenRB-150.ino",
+          "line": 241,
+          "end_line": 245,
+          "label": "getDriveMode"
+        }
+      ]
+    },
+    {
+      "id": "monitor",
+      "type": "backend",
+      "label": "monitor",
+      "sublabel": "링크 · 모드 · 속도 감시",
+      "tag": "이 저장소",
+      "pos": [
+        280,
+        398
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "ros2_ws/src/uel_rover/src/monitor.cpp",
+          "line": 159,
+          "end_line": 199,
+          "label": "/diagnostics 발행"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "GCS PC · Wi-Fi LAN",
+      "wraps": [
+        "gcs"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "로버 컴퓨터 · Jetson Orin · ROS 2 Jazzy",
+      "wraps": [
+        "bridge",
+        "commander",
+        "agent",
+        "monitor"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "단독 안전 게이트",
+      "wraps": [
+        "board"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "gcs-to-bridge",
+      "from": "gcs",
+      "to": "bridge",
+      "label": "WebSocket",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bridge-to-commander",
+      "from": "bridge",
+      "to": "commander",
+      "label": "/cmd_vel",
+      "variant": "emphasis"
+    },
+    {
+      "id": "commander-to-agent",
+      "from": "commander",
+      "to": "agent",
+      "label": "/cmd_vel_out",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agent-to-board",
+      "from": "agent",
+      "to": "board",
+      "label": "USB 시리얼",
+      "variant": "emphasis"
+    },
+    {
+      "id": "board-to-motors",
+      "from": "board",
+      "to": "motors",
+      "label": "TTL 1 Mbps",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 54
+    },
+    {
+      "id": "rc-to-board",
+      "from": "rc",
+      "to": "board",
+      "label": "PWM CH1 · CH2 · CH5",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 44
+    },
+    {
+      "id": "agent-to-monitor",
+      "from": "agent",
+      "to": "monitor",
+      "label": "/wheel_velocity · /drive_mode",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "monitor-to-bridge",
+      "from": "monitor",
+      "to": "bridge",
+      "label": "/diagnostics",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "주 경로",
+      "items": [
+        "Teleop 이 /cmd_vel 을 10 Hz 로 발행한다. 멈추면 0.5 s 뒤 정지",
+        "commander: 0.26 m/s · 1.0 rad/s 클램프, NaN/Inf 는 정지",
+        "펌웨어가 ±50 RPM 으로 다시 클램프, 워치독 500 ms",
+        "복귀: 제어보드 50 Hz 상태 → monitor → /diagnostics 1 Hz"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "신뢰 경계",
+      "items": [
+        "WebSocket 8765: 인증·TLS 없음, client_topic_whitelist 미적용",
+        "DDS 접근 제어 없음: /cmd_vel_out 직접 발행은 commander 우회",
+        "강제 지점은 제어보드뿐: CH5 모드 판정이 매 루프 먼저 실행",
+        "RC 펄스 신선도 검사 없음 (마지막 유효 폭 유지)"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "외부 의존성",
+      "items": [
+        "ROS 2 Jazzy · Fast DDS · Ubuntu 24.04",
+        "foxglove_bridge (apt), Foxglove 데스크톱 앱 (GCS PC)",
+        "micro_ros_agent: jazzy 브랜치 소스 빌드 (microros_ws/)",
+        "펌웨어: DynamixelShield, micro_ros_arduino",
+        "미포함: examples/ (Nav2 등) 는 빌드되지 않는 참고 구현"
+      ]
+    }
+  ]
+}
