@@ -1,45 +1,31 @@
 # UEL_Rover
 
 ROS 2 (Jazzy) 기반 차동구동 로버 **UEL Rover** 의 소프트웨어 저장소.
-제어보드(ROBOTIS OpenRB-150) 펌웨어, 로버 컴퓨터(Jetson Orin)에서 도는 ROS 2 패키지,
+제어보드 펌웨어, 임무 컴퓨터에서 도는 ROS 2 패키지,
 지상국(GCS) 용 Foxglove 레이아웃, 로버 환경을 한 번에 구성하는 설치 스크립트를 담고 있다.
-
-구성 원칙은 **최소 구성 + 참고 구현** 이다. 로버를 움직이는 데 꼭 필요한 것만 빌드·설치되고,
-오도메트리·URDF·센서·Nav2 같은 부가 요소는 `examples/` 에 참고 구현으로 두어 필요할 때 골라 넣는다.
 
 ## 시스템 개요
 
-```
- GCS PC ── Foxglove 앱 (상태 표시, Teleop 으로 /cmd_vel 발행)
-    │  Wi-Fi, ws://<로버 IP>:8765                     ← foxglove_bridge (gcs.launch.py)
- 로버 컴퓨터 ── Jetson Orin, ROS 2 Jazzy, ros2_ws/src/uel_rover
-    │    commander : /cmd_vel → /cmd_vel_out (상한 클램프, 타임아웃 시 정지)
-    │    monitor   : /wheel_velocity, /drive_mode → /diagnostics
-    │  USB 시리얼, micro-ROS 115200 bps                ← micro_ros_agent (bringup.launch.py)
- 제어보드 ── OpenRB-150, firmware/OpenRB-150/OpenRB-150.ino
-    │    조종기 CH5 로 RC / AUTO / STOP 판정, AUTO 에서만 /cmd_vel_out 적용
-    │  TTL 1 Mbps                                         ▲ PWM (CH1 조향, CH2 스로틀, CH5 모드)
- 다이나믹셀 바퀴 모터 2개 (ID 1 좌, 2 우)            FS-iA10B 수신기 ◀─ 무선 ─ FlySky 조종기
-```
-
-안전 게이트는 제어보드 하나뿐이다. 조종기 스위치(CH5)가 AUTO 일 때만 소프트웨어 명령이 모터에
-전달되고, RC 에서는 조종기가 직접 구동하며, STOP 에서는 즉시 정지한다. 이 판정은 micro-ROS
-연결 상태와 무관하게 매 루프 먼저 실행되므로, Jetson 쪽 소프트웨어가 어떤 상태이든 조종기
-스위치로 즉시 회수할 수 있다.
+![UEL Rover 런타임 아키텍처. GCS PC 의 Foxglove 앱에서 로버 컴퓨터의 foxglove_bridge, commander, micro_ros_agent 를 거쳐 OpenRB-150 펌웨어와 다이나믹셀 모터로 이어지는 명령 경로, 조종기 PWM 이 들어가는 제어보드의 단독 안전 게이트, monitor 를 거쳐 GCS 로 돌아가는 상태 경로](docs/architecture/uel-rover.png)
 
 ## 저장소 구조
 
 ```
 UEL_Rover/
 ├── README.md                        # 이 문서
+├── docs/
+│   └── architecture/                # 시스템 개요
+│       ├── uel-rover.png
+│       ├── uel-rover-runtime.html
+│       └── uel-rover-runtime.architecture.json
 ├── scripts/
 │   └── setup.sh                     # 로버(Jetson) 최초 1회 환경 설정
-├── firmware/
+├── firmware/                        # 제어보드 펌웨어
 │   └── OpenRB-150/
 │       ├── README.md                # 배선, 빌드·업로드, ROS 인터페이스, 드라이브 모드, 확인할 상수
-│       └── OpenRB-150.ino           # 제어보드 펌웨어 (Arduino, micro-ROS)
+│       └── OpenRB-150.ino           
 ├── ros2_ws/                         # colcon 워크스페이스
-│   └── src/uel_rover/               # ROS 2 패키지 (ament_cmake, C++17)
+│   └── src/uel_rover/               # ROS 2 패키지
 │       ├── README.md                # 노드·파라미터·launch 인자 상세
 │       ├── CMakeLists.txt
 │       ├── package.xml
@@ -52,7 +38,7 @@ UEL_Rover/
 │       ├── config/
 │       │   ├── rover.yaml           # commander / monitor 파라미터
 │       │   └── foxglove_bridge.yaml # foxglove_bridge 파라미터
-│       └── examples/                # 빌드·설치되지 않는 참고 구현
+│       └── examples/                # ROS2 코드 예제
 │           ├── README.md            # 각 예제를 패키지에 넣는 절차
 │           ├── odometry/            # odom_publisher.cpp, odometry.yaml
 │           ├── description/         # uel_rover.urdf, description.launch.py
