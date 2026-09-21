@@ -14,10 +14,12 @@ ROS 2 (Jazzy) 기반 차동구동 로버 **UEL Rover** 의 소프트웨어 저�
 UEL_Rover/
 ├── README.md                        # 이 문서
 ├── docs/
-│   └── architecture/                # 시스템 개요
-│       ├── uel-rover.png
-│       ├── uel-rover-runtime.html
-│       └── uel-rover-runtime.architecture.json
+│   ├── architecture/                # 시스템 개요
+│   │   ├── uel-rover.png
+│   │   ├── uel-rover-runtime.html
+│   │   └── uel-rover-runtime.architecture.json
+│   └── assets/
+│       └── gcs_sample.png           # GCS(Foxglove) 화면 예시
 ├── scripts/
 │   └── setup.sh                     # 로버(Jetson) 최초 1회 환경 설정
 ├── firmware/                        # 제어보드 펌웨어
@@ -180,6 +182,8 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 끊김, WARN 은 비물리적 바퀴 속도 감지, OK 는 정상 (message 에 현재 모드 표시).
 
 ### GCS 에서 보고 조종하기
+
+![Foxglove GCS 화면. 왼쪽에 Diagnostics 요약과 상세, 가운데 위에 드라이브 모드 Indicator(AUTO 초록), 오른쪽 위에 좌우 바퀴 rpm Plot, 가운데에 속도 "−" / "+" 버튼과 현재 속도 표시, 그 아래 Teleop 방향 패드, 오른쪽에 /cmd_vel_out Raw Messages 와 Log](docs/assets/gcs_sample.png)
 
 1. Foxglove 에서 **Open connection → Foxglove WebSocket**, URL `ws://<로버 IP>:8765`.
 2. 접속되면 Diagnostics 패널에 `uel_rover/control_board` 가, Indicator 에 드라이브 모드 색이 뜬다.

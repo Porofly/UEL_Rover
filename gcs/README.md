@@ -60,17 +60,22 @@ ros2 launch uel_rover gcs.launch.py                 # 브릿지 (기본 포트 8
 
 ## 패널
 
-| 패널 | 표시/기능 | 출처 |
-|---|---|---|
-| Diagnostics – Summary | 제어보드 상태 레벨 (OK / WARN / ERROR / STALE) | `/diagnostics` (monitor) |
-| Diagnostics – Detail | 드라이브 모드, 바퀴 rpm, 수신 주기, 링크 경과 시간 등 상세 값 | `/diagnostics` (monitor) |
-| Indicator | 드라이브 모드 색 표시: AUTO 초록 / RC 노랑 / STOP 빨강 / 수신 없음 회색 | `/drive_mode` (제어보드) |
-| Plot | 좌/우 바퀴 rpm 시계열 | `/wheel_velocity` (제어보드) |
-| Publish "−" / "+" | 속도 한 단계 내림 / 올림 | → `/gcs/speed_step` (gcs_teleop) |
-| Raw Messages (속도) | 현재 고른 속도. 예: `4/10  0.12 m/s  0.82 rad/s` | `/gcs/speed` (gcs_teleop) |
-| Teleop | 방향 버튼. 값은 방향(±1)일 뿐 속도가 아니다 | → `/gcs/teleop` (gcs_teleop) |
-| Raw Messages | 제어보드로 실제 나가는 명령 확인 | `/cmd_vel_out` (commander) |
-| Log | 로버 노드 로그 (INFO 이상) | `/rosout` |
+![Foxglove GCS 화면. 왼쪽에 Diagnostics 요약과 상세, 가운데 위에 드라이브 모드 Indicator(AUTO 초록), 오른쪽 위에 좌우 바퀴 rpm Plot, 가운데에 속도 "−" / "+" 버튼과 현재 속도 표시, 그 아래 Teleop 방향 패드, 오른쪽에 /cmd_vel_out Raw Messages 와 Log](../docs/assets/gcs_sample.png)
+
+AUTO 모드로 접속한 화면이다. 화면 속 속도 수치는 촬영 당시 설정(최고 0.34 m/s)의 값이라
+현재 기본값(최고 0.306 m/s)과 다르다.
+
+| 패널 | 화면 위치 | 표시/기능 | 출처 |
+|---|---|---|---|
+| Diagnostics – Summary | 왼쪽 위 | 제어보드 상태 레벨 (OK / WARN / ERROR / STALE) | `/diagnostics` (monitor) |
+| Diagnostics – Detail | 왼쪽 아래 | 드라이브 모드, 바퀴 rpm, 수신 주기, 링크 경과 시간 등 상세 값 | `/diagnostics` (monitor) |
+| Indicator | 가운데 위 (색 패널) | 드라이브 모드 색 표시: AUTO 초록 / RC 노랑 / STOP 빨강 / 수신 없음 회색 | `/drive_mode` (제어보드) |
+| Plot | 오른쪽 위 | 좌/우 바퀴 rpm 시계열 | `/wheel_velocity` (제어보드) |
+| Publish "−" / "+" | 가운데 행 양 끝 | 속도 한 단계 내림 / 올림 | → `/gcs/speed_step` (gcs_teleop) |
+| Raw Messages (속도) | 두 버튼 사이 | 현재 고른 속도. 예: `4/10  0.12 m/s  0.82 rad/s` | `/gcs/speed` (gcs_teleop) |
+| Teleop | 가운데 아래 | 방향 버튼. 값은 방향(±1)일 뿐 속도가 아니다 | → `/gcs/teleop` (gcs_teleop) |
+| Raw Messages | 오른쪽 가운데 | 제어보드로 실제 나가는 명령 확인 | `/cmd_vel_out` (commander) |
+| Log | 오른쪽 아래 | 로버 노드 로그 (INFO 이상) | `/rosout` |
 
 ## 조종 (Teleop)
 
