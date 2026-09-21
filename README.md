@@ -31,12 +31,13 @@ UEL_Rover/
 │       ├── package.xml
 │       ├── src/
 │       │   ├── commander.cpp        # /cmd_vel → /cmd_vel_out
-│       │   └── monitor.cpp          # 제어보드 링크·모드·바퀴 속도 감시 → /diagnostics
+│       │   ├── monitor.cpp          # 제어보드 링크·모드·바퀴 속도 감시 → /diagnostics
+│       │   └── gcs_teleop.cpp       # GCS Teleop 방향 × +/− 로 고른 속도 → /cmd_vel
 │       ├── launch/
 │       │   ├── bringup.launch.py    # micro_ros_agent + commander + monitor
-│       │   └── gcs.launch.py        # foxglove_bridge (GCS 연결, 선택)
+│       │   └── gcs.launch.py        # foxglove_bridge + gcs_teleop (GCS 연결, 선택)
 │       ├── config/
-│       │   ├── rover.yaml           # commander / monitor 파라미터
+│       │   ├── rover.yaml           # commander / monitor / gcs_teleop 파라미터
 │       │   └── foxglove_bridge.yaml # foxglove_bridge 파라미터
 │       └── examples/                # ROS2 코드 예제
 │           ├── README.md            # 각 예제를 패키지에 넣는 절차
@@ -182,8 +183,9 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 1. Foxglove 에서 **Open connection → Foxglove WebSocket**, URL `ws://<로버 IP>:8765`.
 2. 접속되면 Diagnostics 패널에 `uel_rover/control_board` 가, Indicator 에 드라이브 모드 색이 뜬다.
-3. 조종기를 **AUTO** 로 두고 Teleop 패널 방향 버튼을 누르면 `/cmd_vel` 이 10 Hz 로 나간다.
-   기본 속도는 0.15 m/s, 0.6 rad/s. 버튼을 떼면 commander 가 0.5 s 후 정지 명령을 보낸다.
+3. 조종기를 **AUTO** 로 두고 Teleop 패널 방향 버튼을 누르면 움직인다. 속도는 Teleop 위의
+   **"−" / "+" 버튼**으로 1 ~ 10 단계를 오가며 바꾸고(시작 0.12 m/s · 0.82 rad/s, 최고는
+   RC 풀 입력과 같은 0.306 m/s · 2.04 rad/s), 두 버튼 사이에 현재 값이 표시된다. 버튼을 떼면 즉시 정지한다.
 4. 패널별 설명과 문제 해결은 [gcs/README.md](gcs/README.md).
 
 ### ROS 2 인터페이스 요약
@@ -191,13 +193,16 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 | 토픽 | 타입 | 발행 → 구독 | 비고 |
 |---|---|---|---|
 | `/cmd_vel` | `geometry_msgs/Twist` | 상위 제어기 → commander | 사용자가 발행하는 유일한 입력 |
+| `/gcs/teleop`, `/gcs/speed_step` | `geometry_msgs/Twist`(방향 ±1), `std_msgs/Int8`(±1) | GCS → gcs_teleop | GCS 조종 입력. gcs_teleop 이 `/cmd_vel` 로 바꾼다 |
+| `/gcs/speed` | `std_msgs/String` | gcs_teleop → GCS | 현재 고른 속도 표시, 1 Hz |
 | `/cmd_vel_out` | `geometry_msgs/Twist` | commander → 제어보드 | 클램프된 명령. 직접 발행하지 않는다 |
 | `/wheel_velocity` | `std_msgs/Float32MultiArray` `[vL_rpm, vR_rpm]` | 제어보드 → monitor | 50 Hz |
 | `/drive_mode` | `std_msgs/String` `"RC"/"AUTO"/"STOP"` | 제어보드 → monitor | 50 Hz |
 | `/diagnostics` | `diagnostic_msgs/DiagnosticArray` | monitor → GCS, rqt | 상태명 `uel_rover/control_board`, 1 Hz |
 
-commander 파라미터 (`config/rover.yaml`): `max_linear_velocity` 0.26 m/s, `max_angular_velocity` 1.0 rad/s, `command_timeout` 0.5 s.
+commander 파라미터 (`config/rover.yaml`): `max_linear_velocity` 0.306 m/s, `max_angular_velocity` 2.04 rad/s (RC 풀 입력 = 바퀴 45 rpm, 서보 Velocity Limit 바로 아래), `command_timeout` 0.5 s.
 monitor 파라미터: `link_timeout` 0.5 s, `max_wheel_rpm` 100, `diagnostics_period` 1.0 s.
+gcs_teleop 파라미터: `max_linear_speed` 0.306 m/s, `max_angular_speed` 2.04 rad/s, `speed_levels` 10, `initial_level` 4.
 자세한 동작은 [ros2_ws/src/uel_rover/README.md](ros2_ws/src/uel_rover/README.md).
 
 ## 기능 추가 안내
@@ -264,7 +269,7 @@ TF 트리는 `map → odom → base_link → camera_link, 바퀴`.
 ### GCS 를 확장할 때
 
 - 패널 추가는 Foxglove 앱에서 하고 레이아웃을 `gcs/foxglove/uel_rover_gcs.json` 으로 내보낸다.
-- 로버에서 발행 가능한 토픽을 제한하려는 `client_topic_whitelist` 가 `config/foxglove_bridge.yaml` 에 있지만, apt 의 foxglove_bridge 3.5.0 은 적용하지 않는다. 그래서 **레이아웃에 `/cmd_vel` 외의 발행 패널을 두지 않는다**는 규칙으로 대신한다.
+- 로버에서 발행 가능한 토픽을 제한하려는 `client_topic_whitelist` 가 `config/foxglove_bridge.yaml` 에 있지만, apt 의 foxglove_bridge 3.5.0 은 적용하지 않는다. 그래서 **레이아웃에 `/gcs/teleop`, `/gcs/speed_step` 외의 발행 패널을 두지 않는다**는 규칙으로 대신한다.
 - 무선 대역폭이 부족하면 `topic_whitelist` 로 GCS 에 보낼 토픽을 줄인다.
 - 게임패드 (`teleop_twist_joy`), 카메라 영상, Nav2 목표점 지정 등 확장 예는 [gcs/README.md](gcs/README.md) 의 "확장" 절.
 

@@ -12,14 +12,18 @@ uel_rover/
 ├── CMakeLists.txt
 ├── package.xml
 ├── config/
-│   ├── rover.yaml               # commander / monitor 파라미터
+│   ├── rover.yaml               # commander / monitor / gcs_teleop 파라미터
 │   └── foxglove_bridge.yaml     # GCS 연결(foxglove_bridge) 파라미터
 ├── launch/
 │   ├── bringup.launch.py        # micro_ros_agent + commander + monitor
-│   └── gcs.launch.py            # foxglove_bridge (GCS 연결, 선택)
+│   └── gcs.launch.py            # foxglove_bridge + gcs_teleop (GCS 연결, 선택)
 ├── src/
 │   ├── commander.cpp            # 이동 명령 → 제어보드
-│   └── monitor.cpp              # 제어보드 상태 감시 → /diagnostics
+│   ├── monitor.cpp              # 제어보드 상태 감시 → /diagnostics
+│   ├── gcs_teleop.cpp           # GCS Teleop 방향 × 고른 속도 → /cmd_vel
+│   └── teleop_speed.hpp         # 속도 단계 계산 (순수 함수)
+├── test/
+│   └── test_teleop_speed.cpp    # colcon test
 └── examples/                    # 빌드·설치되지 않는 참고 구현
 ```
 
@@ -54,8 +58,8 @@ uel_rover/
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `max_linear_velocity` | 0.26 m/s | 0 이하면 클램프 비활성 |
-| `max_angular_velocity` | 1.0 rad/s | 0 이하면 클램프 비활성 |
+| `max_linear_velocity` | 0.26 m/s | 0 이하면 클램프 비활성. `rover.yaml` 은 0.306 (RC 풀 입력 = 바퀴 45 rpm) |
+| `max_angular_velocity` | 1.0 rad/s | 0 이하면 클램프 비활성. `rover.yaml` 은 2.04 (제자리 회전 시 바퀴 ±45 rpm) |
 | `command_timeout` | 0.5 s | 0 이하면 비활성 |
 
 commander 는 명령을 반복 발행하지 않는다. 제어보드 워치독(500 ms) 안에 다음
@@ -86,6 +90,25 @@ commander 는 명령을 반복 발행하지 않는다. 제어보드 워치독(50
 
 values: `drive_mode`, `wheel_left_rpm`, `wheel_right_rpm`, `wheel_velocity_rate_hz`,
 `wheel_velocity_age_s`, `drive_mode_age_s`, `bad_wheel_samples`.
+
+### gcs_teleop
+
+`gcs.launch.py` 에서만 뜬다. GCS 의 Teleop 패널은 방향만 보내고, 속도는 "+" / "−" 버튼으로
+고른 단계를 이 노드가 곱한다. commander 입장에서는 또 하나의 상위 제어기다.
+
+| 항목 | 내용 |
+|---|---|
+| 구독 | `gcs/teleop` (`geometry_msgs/Twist`, 방향 −1..1), `gcs/speed_step` (`std_msgs/Int8`, 부호만 사용) |
+| 발행 | `cmd_vel` (`geometry_msgs/Twist`), `gcs/speed` (`std_msgs/String`, 예: `4/10  0.12 m/s  0.82 rad/s`) |
+| 동작 | 단계 / `speed_levels` 비율로 선속도·각속도를 함께 정한다. 방향 입력은 ±1 로 자르고 NaN/Inf 는 0. |
+| 발행 시점 | `cmd_vel` 은 입력이 올 때만(반복 발행 없음). `gcs/speed` 는 변경 시 + 1 Hz. |
+
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| `max_linear_speed` | 0.26 m/s | 최고 단계의 선속도. commander 상한 이하로 둔다. `rover.yaml` 은 0.306 |
+| `max_angular_speed` | 1.0 rad/s | 최고 단계의 각속도. commander 상한 이하로 둔다. `rover.yaml` 은 2.04 |
+| `speed_levels` | 10 | 단계 수 |
+| `initial_level` | 6 | 시작 단계. `rover.yaml` 은 4 |
 
 ## 빌드
 
@@ -126,9 +149,10 @@ ros2 launch uel_rover gcs.launch.py             # 기본 ws://0.0.0.0:8765
 ros2 launch uel_rover gcs.launch.py port:=9000
 ```
 
-GCS PC 의 Foxglove 앱이 `ws://<로버 IP>:8765` 로 접속해 `/diagnostics` 등을 보고
-Teleop 패널로 `/cmd_vel` 을 발행한다. [config/foxglove_bridge.yaml](config/foxglove_bridge.yaml)
-의 `client_topic_whitelist` 는 GCS 발행을 `/cmd_vel` 로 제한하려는 설정이지만, apt 의
+GCS PC 의 Foxglove 앱이 `ws://<로버 IP>:8765` 로 접속해 `/diagnostics` 등을 보고,
+Teleop 패널(`/gcs/teleop`)과 속도 +/− 버튼(`/gcs/speed_step`)으로 조종한다. 같은 launch 가
+띄우는 gcs_teleop 이 이를 `/cmd_vel` 로 바꾼다. [config/foxglove_bridge.yaml](config/foxglove_bridge.yaml)
+의 `client_topic_whitelist` 는 GCS 발행을 이 두 토픽으로 제한하려는 설정이지만, apt 의
 foxglove_bridge 3.5.0 은 이 파라미터를 적용하지 않는다(설정 파일 주석 참고).
 앱 설치·접속·레이아웃은 저장소 루트의 [gcs/README.md](../../../gcs/README.md) 참고.
 

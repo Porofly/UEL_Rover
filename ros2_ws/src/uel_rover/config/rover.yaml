@@ -6,12 +6,29 @@
 commander:
   ros__parameters:
     # cmd_vel → cmd_vel_out 클램프 상한. 0 이하면 해당 축 클램프 비활성.
-    # 펌웨어 MAX_RPM 50 기준 최대 선속도는 바퀴 반지름 0.0877 m 에서 약 0.46 m/s.
-    max_linear_velocity:  0.26   # [m/s]
-    max_angular_velocity: 1.0    # [rad/s]
+    # RC 풀 입력과 같은 값이다. RC 의 실제 최대는 펌웨어 MAX_RPM(50)이 아니라 서보의
+    # Velocity Limit 에 걸린 바퀴 약 45 rpm 이다(실기 확인: 45 rpm 명령은 RC 최대와 같은 속도로
+    # 돌고, 50 rpm 명령은 무반응). 펌웨어가 Twist 를 rpm 으로 바꿀 때 쓰는 상수(반지름 0.065 m,
+    # 축간 0.30 m)로 45 rpm 을 환산하면 아래 값이 된다.
+    # 서보는 한계를 넘는 속도를 잘라 쓰지 않고 거부하므로, 서보의 Velocity Limit 을 올리지
+    # 않는 한 이 값을 넘기지 않는다.
+    # (실측 반지름 0.0877 m 기준 실제 선속도는 약 0.41 m/s.)
+    max_linear_velocity:  0.306  # [m/s]   직진 시 바퀴 45 rpm
+    max_angular_velocity: 2.04   # [rad/s] 제자리 회전 시 바퀴 ±45 rpm
     # 이 시간 동안 cmd_vel 이 없으면 정지 명령을 한 번 보낸다. 0 이하면 비활성.
     # 제어보드 워치독(500 ms)과 같은 값. 여기서 먼저 잡히면 로그에 남는다.
     command_timeout: 0.5         # [s]
+
+# gcs.launch.py 가 띄운다. GCS 의 "+" / "−" 버튼으로 1..speed_levels 단계를 오가고,
+# 단계 / speed_levels 비율로 선속도·각속도가 함께 변한다.
+gcs_teleop:
+  ros__parameters:
+    # 최고 단계의 속도. commander 상한 이하로 둔다(넘는 만큼은 commander 가 잘라서
+    # GCS 에 표시되는 속도와 실제 명령이 달라진다).
+    max_linear_speed:  0.306     # [m/s]   commander 상한과 같게 = RC 풀 입력
+    max_angular_speed: 2.04      # [rad/s]
+    speed_levels: 10
+    initial_level: 4             # 시작 단계: 0.12 m/s, 0.82 rad/s
 
 monitor:
   ros__parameters:

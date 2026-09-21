@@ -19,4 +19,6 @@ foxglove_bridge:
     #    소스에서도 파싱한 패턴을 쓰는 곳이 없다.) 즉 현재는 GCS 가 어떤 토픽이든
     #   발행할 수 있다. 상위 버전에서 고쳐지면 이 설정이 그대로 동작한다.
     # Nav2 예제를 켜고 GCS 에서 목표점을 찍으려면 "^/goal_pose$", "^/initialpose$" 를 추가.
-    client_topic_whitelist: ["^/cmd_vel$"]
+    # GCS 는 /cmd_vel 을 직접 내지 않는다: Teleop 방향(/gcs/teleop)과 속도 +/-(/gcs/speed_step)만
+    # 보내고, gcs_teleop 노드가 /cmd_vel 로 바꾼다.
+    client_topic_whitelist: ["^/gcs/teleop$", "^/gcs/speed_step$"]

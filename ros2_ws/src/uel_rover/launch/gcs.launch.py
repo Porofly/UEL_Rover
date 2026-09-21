@@ -36,4 +36,10 @@ def generate_launch_description():
              parameters=[params_file,
                          {'port': ParameterValue(port, value_type=int),
                           'address': address}]),
+
+        # Teleop 패널의 방향 입력(gcs/teleop)에 +/- 로 고른 속도를 곱해 cmd_vel 로 낸다.
+        # 속도 상한은 commander 상한과 나란히 rover.yaml 에 둔다.
+        Node(package='uel_rover', executable='gcs_teleop',
+             name='gcs_teleop', output='screen',
+             parameters=[os.path.join(pkg, 'config', 'rover.yaml')]),
     ])

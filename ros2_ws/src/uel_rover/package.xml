@@ -5,7 +5,8 @@
   <version>0.1.0</version>
   <description>
     UEL Rover 제어보드(OpenRB-150) 인터페이스 템플릿.
-    Commander(이동 명령 전달)와 Monitor(제어보드 상태 감시) 두 노드로 구성된다.
+    Commander(이동 명령 전달)와 Monitor(제어보드 상태 감시) 두 노드가 기본이고,
+    GCS 연결 시 GcsTeleop(Teleop 속도 조절)이 함께 뜬다.
   </description>
   <maintainer email="yeogyeom1@gmail.com">UEL Rover Team</maintainer>
   <license>MIT</license>
@@ -23,6 +24,8 @@
   <exec_depend>foxglove_bridge</exec_depend>
   <!-- micro_ros_agent 는 apt 가 아니라 별도 워크스페이스에서 소스 빌드하므로
        rosdep 키로 선언하지 않는다. README 참고. -->
+
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

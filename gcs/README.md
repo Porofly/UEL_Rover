@@ -4,13 +4,15 @@
 기본 기능은 두 가지다.
 
 1. **모니터링**: 로버 `monitor` 노드가 내보내는 `/diagnostics` 와 제어보드 토픽을 표시
-2. **조종**: Foxglove Teleop 패널이 `/cmd_vel` 을 발행 → 로버 `commander` → 제어보드
+2. **조종**: Teleop 패널이 방향을, "+" / "−" 버튼이 속도 단계를 보냄 → 로버 `gcs_teleop` 이
+   둘을 곱해 `/cmd_vel` 발행 → `commander` → 제어보드
 
 ```
 [GCS PC]                              [로버 (Jetson)]
 Foxglove 앱  ── ws://<로버IP>:8765 ──▶ foxglove_bridge ──┬─ /diagnostics, /drive_mode,
-  · 상태 표시   ◀──────────────────────                  │  /wheel_velocity, /rosout ...
-  · Teleop 패널 ── /cmd_vel ──────────▶                  └─ commander → /cmd_vel_out → OpenRB-150
+  · 상태 표시   ◀──────────────────────                  │  /wheel_velocity, /gcs/speed, /rosout ...
+  · Teleop 패널 ── /gcs/teleop ───────▶                  └─ gcs_teleop → /cmd_vel → commander
+  · + / − 버튼  ── /gcs/speed_step ───▶                       → /cmd_vel_out → OpenRB-150
 ```
 
 GCS PC 에는 ROS 2 가 필요 없다. 브릿지는 로버에서 돈다.
@@ -31,13 +33,15 @@ gcs/
 ```bash
 sudo apt install ros-jazzy-foxglove-bridge          # 최초 1회
 ros2 launch uel_rover bringup.launch.py             # 제어 스택
-ros2 launch uel_rover gcs.launch.py                 # 브릿지 (기본 포트 8765)
+ros2 launch uel_rover gcs.launch.py                 # 브릿지 (기본 포트 8765) + gcs_teleop
 ```
 
-파라미터는 `ros2_ws/src/uel_rover/config/foxglove_bridge.yaml`.
-`client_topic_whitelist` 로 GCS 발행을 `/cmd_vel` 만 허용하도록 설정해 두었지만, apt 로
-설치되는 foxglove_bridge 3.5.0 은 이 값을 읽기만 하고 적용하지 않는다(실측 확인). 즉 현재는
-GCS 가 어떤 토픽이든 발행할 수 있으므로, 레이아웃에 `/cmd_vel` 외의 발행 패널을 두지 않는다.
+브릿지 파라미터는 `ros2_ws/src/uel_rover/config/foxglove_bridge.yaml`, 속도 단계 파라미터는
+같은 디렉터리 `rover.yaml` 의 `gcs_teleop` 절.
+`client_topic_whitelist` 로 GCS 발행을 `/gcs/teleop`, `/gcs/speed_step` 만 허용하도록 설정해
+두었지만, apt 로 설치되는 foxglove_bridge 3.5.0 은 이 값을 읽기만 하고 적용하지 않는다(실측
+확인). 즉 현재는 GCS 가 어떤 토픽이든 발행할 수 있으므로, 레이아웃에 이 둘 외의 발행 패널을
+두지 않는다.
 
 ### GCS PC
 
@@ -62,7 +66,9 @@ GCS 가 어떤 토픽이든 발행할 수 있으므로, 레이아웃에 `/cmd_ve
 | Diagnostics – Detail | 드라이브 모드, 바퀴 rpm, 수신 주기, 링크 경과 시간 등 상세 값 | `/diagnostics` (monitor) |
 | Indicator | 드라이브 모드 색 표시: AUTO 초록 / RC 노랑 / STOP 빨강 / 수신 없음 회색 | `/drive_mode` (제어보드) |
 | Plot | 좌/우 바퀴 rpm 시계열 | `/wheel_velocity` (제어보드) |
-| Teleop | 방향 버튼으로 `/cmd_vel` 발행 | → commander |
+| Publish "−" / "+" | 속도 한 단계 내림 / 올림 | → `/gcs/speed_step` (gcs_teleop) |
+| Raw Messages (속도) | 현재 고른 속도. 예: `4/10  0.12 m/s  0.82 rad/s` | `/gcs/speed` (gcs_teleop) |
+| Teleop | 방향 버튼. 값은 방향(±1)일 뿐 속도가 아니다 | → `/gcs/teleop` (gcs_teleop) |
 | Raw Messages | 제어보드로 실제 나가는 명령 확인 | `/cmd_vel_out` (commander) |
 | Log | 로버 노드 로그 (INFO 이상) | `/rosout` |
 
@@ -70,11 +76,17 @@ GCS 가 어떤 토픽이든 발행할 수 있으므로, 레이아웃에 `/cmd_ve
 
 - 조종기 스위치를 **AUTO** 로 둔 상태에서만 로버가 움직인다. RC / STOP 에서는 제어보드가
   `/cmd_vel_out` 을 무시한다.
-- 방향 버튼을 누르는 동안 10 Hz 로 발행한다. 기본값은 전진/후진 0.15 m/s, 좌/우 회전 0.6 rad/s.
-  패널 설정(톱니 아이콘)에서 바꿀 수 있고, commander 의 상한(0.26 m/s, 1.0 rad/s)을 넘는
-  값은 로버에서 잘린다.
-- 버튼을 떼면 발행이 멈추고, commander 가 0.5 s 후 정지 명령을 보낸다. 제어보드에도
-  0.5 s 워치독이 있다. 패널 설정에 **Stop on release** 가 있으면 켜 두면 즉시 정지한다.
+- 속도는 Teleop 위의 **"−" / "+" 버튼**으로 바꾼다. 1 ~ 10 단계이고 시작은 4 단계
+  (0.12 m/s, 0.82 rad/s), 최고 단계가 RC 풀 입력과 같은 0.306 m/s, 2.04 rad/s(바퀴 45 rpm, 서보 Velocity Limit 바로 아래)다. 선속도와 각속도가 같은 비율로
+  변하며, 두 버튼 사이에 현재 값이 표시된다. 속도는 로버 쪽 `gcs_teleop` 이 기억하므로 GCS 를
+  다시 접속해도 유지되고, `gcs.launch.py` 를 다시 띄우면 시작 단계로 돌아간다.
+- 단계 수·시작 단계·최고 속도는 `rover.yaml` 의 `gcs_teleop` 절에서 바꾼다. 최고 속도를
+  올리려면 `commander` 의 `max_linear_velocity` / `max_angular_velocity` 도 같이 올려야 한다
+  (commander 가 최종 클램프를 한다).
+- 방향 버튼을 누르는 동안 10 Hz 로 발행한다. Teleop 패널의 버튼 값(±1)은 방향이므로 바꾸지
+  않는다. 1 보다 큰 값을 넣어도 고른 속도를 넘지 않는다.
+- 버튼을 떼면 Teleop 이 정지(0)를 한 번 보내 즉시 멈춘다(`autoSendStopOnRelease`). 그 메시지가
+  유실돼도 commander 가 0.5 s 후 정지 명령을 보내고, 제어보드에도 0.5 s 워치독이 있다.
 - GCS 연결이 끊겨도 같은 경로로 로버는 정지한다. 비상시에는 조종기 스위치를 RC 나 STOP 으로
   넘기는 것이 가장 빠르다.
 - GCS 에서 `/cmd_vel_out` 으로 직접 발행하면 commander 의 속도 제한을 건너뛴다. 제어보드가
@@ -88,7 +100,9 @@ GCS 가 어떤 토픽이든 발행할 수 있으므로, 레이아웃에 `/cmd_ve
 | 토픽이 하나도 안 보임 | `bringup.launch.py` 실행 여부, `ros2 topic list` 로 로버에서 토픽 확인 |
 | Diagnostics 가 STALE / ERROR | 제어보드 USB 연결과 micro_ros_agent 상태 (`ros2 topic hz /wheel_velocity`) |
 | Teleop 을 눌러도 안 움직임 | 조종기 스위치가 AUTO 인지, Raw Messages 에 `/cmd_vel_out` 이 찍히는지 |
-| Teleop 이 "publish 불가" 표시 | 브릿지 `capabilities` 에 `clientPublish` 가 있는지(기본 포함). 화이트리스트를 적용하는 브릿지 버전이면 `client_topic_whitelist` 에 `/cmd_vel` 이 있는지 |
+| Teleop 이 "publish 불가" 표시 | 브릿지 `capabilities` 에 `clientPublish` 가 있는지(기본 포함). 화이트리스트를 적용하는 브릿지 버전이면 `client_topic_whitelist` 에 `/gcs/teleop`, `/gcs/speed_step` 이 있는지 |
+| 속도 표시가 비어 있음 / "+" "−" 가 반응 없음 | 로버에서 `gcs_teleop` 이 떠 있는지(`ros2 node list`). 구버전 `gcs.launch.py` 는 이 노드를 띄우지 않는다. 레이아웃도 새 파일로 다시 임포트 |
+| Teleop 을 눌러도 `/cmd_vel_out` 이 안 찍힘 | 위와 같음. 예전 레이아웃은 `/cmd_vel` 로, 새 레이아웃은 `/gcs/teleop` 으로 발행한다 |
 
 ## 확장
 
