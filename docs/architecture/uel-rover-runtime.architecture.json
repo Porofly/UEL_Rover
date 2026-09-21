@@ -30,7 +30,7 @@
           "board",
           "motors"
         ],
-        "note": "조종기 CH5 가 모드를 정한다. Jetson 소프트웨어 상태와 무관하게 매 루프 먼저 실행된다."
+        "note": "조종기 CH7 가 모드를 정한다. Jetson 소프트웨어 상태와 무관하게 매 루프 먼저 실행된다."
       },
       {
         "id": "telemetry-return",
@@ -323,7 +323,7 @@
       "id": "rc-to-board",
       "from": "rc",
       "to": "board",
-      "label": "PWM CH1 · CH2 · CH5",
+      "label": "PWM CH1 · CH2 · CH7",
       "variant": "security",
       "fromSide": "bottom",
       "toSide": "top",
@@ -365,7 +365,7 @@
       "items": [
         "WebSocket 8765: 인증·TLS 없음, client_topic_whitelist 미적용",
         "DDS 접근 제어 없음: /cmd_vel_out 직접 발행은 commander 우회",
-        "강제 지점은 제어보드뿐: CH5 모드 판정이 매 루프 먼저 실행",
+        "강제 지점은 제어보드뿐: CH7 모드 판정이 매 루프 먼저 실행",
         "RC 펄스 신선도 검사 없음 (마지막 유효 폭 유지)"
       ]
     },

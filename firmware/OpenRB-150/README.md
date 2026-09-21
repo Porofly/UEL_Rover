@@ -27,7 +27,7 @@ OpenRB-150/
 |---|---|---|
 | CH1 | 조향 | D6 |
 | CH2 | 스로틀 | D7 |
-| CH5 | 모드 스위치 | D8 |
+| CH7 | 모드 스위치 | D8 |
 | GND | 공통 접지 | GND |
 
 수신기 VCC는 별도 전원 또는 OpenRB-150 5V 핀. PWM 펄스폭은 1000 / 1500 / 2000 µs
@@ -68,10 +68,10 @@ Agent가 재시작되어도 보드 리셋 없이 자동으로 다시 붙는다
 
 ## 드라이브 모드
 
-CH5 펄스폭으로 판정한다. 이 판정이 로버의 유일한 안전 게이트이며 Jetson 쪽에는
+CH7 펄스폭으로 판정한다. 이 판정이 로버의 유일한 안전 게이트이며 Jetson 쪽에는
 중계 노드가 없다.
 
-| CH5 | 모드 | 동작 |
+| CH7 | 모드 | 동작 |
 |---|---|---|
 | 1400 ~ 1600 µs (가운데) | AUTO | `/cmd_vel_out` 적용. Agent 연결됨 · 재연결 후 새 명령 수신 · 500 ms 워치독 이내, 세 조건을 모두 만족할 때만 구동하고 아니면 정지. |
 | ≤ 1300 µs (끝) | RC | 조종기 입력으로 직접 구동. `/cmd_vel_out` 무시. |
@@ -90,8 +90,16 @@ RC / STOP 제어는 micro-ROS 연결 상태와 무관하게 매 루프 먼저 �
 | `DXL_LEFT_ID` / `DXL_RIGHT_ID` | 1 / 2 | 실제 장착된 모터 ID |
 | `RIGHT_MOTOR_INVERTED` | `true` | 우측 모터 장착 방향 |
 | `MAX_RPM` | 50 | 모터 모델 한계. Jetson odom 가드 `max_wheel_rpm`(100)은 이 값의 2배로 유지 |
+| `DXL_VELOCITY_UNIT_RPM` | 0.229 | 서보 속도 레지스터 단위 (X 시리즈 · MX 2.0). 다른 계열이면 e-Manual 값 |
 | `WHEEL_BASE` | 0.30 m | ROS 측 `rover_params.yaml`은 실측 보정값 0.915 m 사용 |
 | `WHEEL_RADIUS` | 0.065 m | ROS 측 `rover_params.yaml`은 실측값 0.0877 m 사용 |
+
+실제 최대 속도는 `MAX_RPM` 과 **서보의 Velocity Limit(EEPROM)** 중 작은 쪽이다. 서보는 한계를
+넘는 Goal Velocity 를 잘라 쓰지 않고 쓰기 자체를 거부하므로(직전 속도가 그대로 남는다),
+펌웨어가 `setup()` 에서 두 서보의 Velocity Limit 을 읽어 RC · AUTO 공통으로 그 안으로 자른다.
+현재 실기(XM430-W350, 모델 번호 1020)의 Velocity Limit 은 200 LSB = 45.8 rpm 이다(2026-09-21
+실측). 더 빠르게 하려면 DYNAMIXEL Wizard 로 서보의 Velocity Limit 을 올리고, ROS 측
+`rover.yaml` 의 상한도 같이 올린다.
 
 `WHEEL_BASE` / `WHEEL_RADIUS`는 AUTO 모드에서 `/cmd_vel_out`(Twist)을 바퀴 RPM으로
 바꿀 때만 쓰인다. ROS 측 오도메트리가 쓰는 값과 다르면 Nav2가 명령한 속도와 실제

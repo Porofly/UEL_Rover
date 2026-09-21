@@ -10,7 +10,7 @@
 //  [RC 배선] FS-iA10B 개별 채널 → OpenRB-150 디지털 핀
 //    CH1 (조향)   → RC_CH1_PIN (핀 6)
 //    CH2 (스로틀) → RC_CH2_PIN (핀 7)
-//    CH5 (모드)   → RC_CH5_PIN (핀 8)
+//    CH7 (모드)   → RC_CH7_PIN (핀 8)
 //    GND          → GND (공통)
 //    ※ VCC는 수신기 별도 전원 또는 OpenRB-150 5V 핀
 //
@@ -58,7 +58,7 @@
 // ── RC 핀 설정 ────────────────────────────────────────────────
 #define RC_CH1_PIN  6    // CH1: 조향   (FS-iA10B CH1 신호선)
 #define RC_CH2_PIN  7    // CH2: 스로틀 (FS-iA10B CH2 신호선)
-#define RC_CH5_PIN  8    // CH5: 모드   (FS-iA10B CH5 신호선)
+#define RC_CH7_PIN  8    // CH7: 모드   (FS-iA10B CH7 신호선)
 
 // ── RC PWM 범위 및 모드 임계값 ────────────────────────────────
 #define RC_MIN       1000
@@ -66,11 +66,11 @@
 #define RC_MAX       2000
 #define RC_DEAD_ZONE   50   // 중립 데드존 ±50µs
 
-// CH5 3단 스위치 순서: 기본 위치(2000µs) STOP → 가운데(1500µs) AUTO → 끝(1000µs) RC.
+// CH7 3단 스위치 순서: 기본 위치(2000µs) STOP → 가운데(1500µs) AUTO → 끝(1000µs) RC.
 // 아래 두 구간에 들지 않는 값은 전부 STOP 이다 (애매한 값으로 구동하지 않는다).
-#define RC_MODE_AUTO_MIN 1400   // 1400 <= ch5 <= 1600µs → AUTO 모드
+#define RC_MODE_AUTO_MIN 1400   // 1400 <= ch7 <= 1600µs → AUTO 모드
 #define RC_MODE_AUTO_MAX 1600
-#define RC_MODE_RC_MAX   1300   // ch5 <= 1300µs         → RC 모드
+#define RC_MODE_RC_MAX   1300   // ch7 <= 1300µs         → RC 모드
 
 // ── 속도 설정 ─────────────────────────────────────────────────
 #define MAX_RPM       50.0f   // 최대 RPM (다이나믹셀 모델에 따라 조정)
@@ -79,6 +79,9 @@
 // |RPM|은 MAX_RPM을 크게 넘을 수 없으므로 2배 여유를 둔다. 젯슨 쪽
 // odom 가드(max_wheel_rpm=100)와 값을 맞춘다.
 #define MAX_PLAUSIBLE_RPM (2.0f * MAX_RPM)
+// 다이나믹셀 속도 레지스터 단위 [rpm/LSB]. X 시리즈·MX(2.0) 공통 0.229.
+// 다른 계열이면 e-Manual 의 Velocity Limit 단위로 바꾼다.
+#define DXL_VELOCITY_UNIT_RPM 0.229f
 #define WHEEL_BASE    0.30f   // [m] 좌우 바퀴 간격
 #define WHEEL_RADIUS  0.065f  // [m] 바퀴 반지름
 
@@ -125,9 +128,9 @@ enum AgentState {
 // ──────────────────────────────────────────────────────────────
 volatile uint16_t rc_ch1 = RC_MID;
 volatile uint16_t rc_ch2 = RC_MID;
-volatile uint16_t rc_ch5 = RC_MAX;   // 수신기 신호가 오기 전에는 STOP
+volatile uint16_t rc_ch7 = RC_MAX;   // 수신기 신호가 오기 전에는 STOP
 
-volatile uint32_t ch1_rise, ch2_rise, ch5_rise;
+volatile uint32_t ch1_rise, ch2_rise, ch7_rise;
 
 void ISR_CH1() {
     if (digitalRead(RC_CH1_PIN)) {
@@ -145,12 +148,12 @@ void ISR_CH2() {
         if (pw >= 900 && pw <= 2100) rc_ch2 = pw;
     }
 }
-void ISR_CH5() {
-    if (digitalRead(RC_CH5_PIN)) {
-        ch5_rise = micros();
+void ISR_CH7() {
+    if (digitalRead(RC_CH7_PIN)) {
+        ch7_rise = micros();
     } else {
-        uint16_t pw = (uint16_t)(micros() - ch5_rise);
-        if (pw >= 900 && pw <= 2100) rc_ch5 = pw;
+        uint16_t pw = (uint16_t)(micros() - ch7_rise);
+        if (pw >= 900 && pw <= 2100) rc_ch7 = pw;
     }
 }
 
@@ -227,7 +230,23 @@ void cmdCallback(const void * msg_in) {
 // ──────────────────────────────────────────────────────────────
 //  다이나믹셀 제어
 // ──────────────────────────────────────────────────────────────
+// 서보에 실제로 쓸 수 있는 최대 속도. setup()에서 서보의 Velocity Limit을 읽어
+// MAX_RPM보다 작으면 그 값으로 낮춘다.
+float wheel_limit_rpm = MAX_RPM;
+
+// 서보의 Velocity Limit [rpm]. 변환 오차로 한계를 1 LSB 넘지 않게 1 LSB 작게 돌려준다.
+// 읽기에 실패하면(0 이하) 한계를 모르는 것이므로 MAX_RPM을 그대로 쓴다.
+float velocityLimitRpm(uint8_t id) {
+    int32_t raw = dxl.readControlTableItem(ControlTableItem::VELOCITY_LIMIT, id);
+    return raw > 1 ? (raw - 1) * DXL_VELOCITY_UNIT_RPM : MAX_RPM;
+}
+
 void setWheelVelocity(float left_rpm, float right_rpm) {
+    // 서보는 Velocity Limit을 넘는 Goal Velocity를 잘라 쓰지 않고 쓰기 자체를 거부한다
+    // (Data Limit Error). 거부되면 직전 속도가 그대로 남는다: 정지 상태에서는 안 움직이고,
+    // 달리는 중에는 새 명령이 먹지 않는다. 그래서 RC·AUTO 공통으로 여기서 먼저 자른다.
+    left_rpm  = constrain(left_rpm,  -wheel_limit_rpm, wheel_limit_rpm);
+    right_rpm = constrain(right_rpm, -wheel_limit_rpm, wheel_limit_rpm);
     if (RIGHT_MOTOR_INVERTED) right_rpm = -right_rpm;
     dxl.setGoalVelocity(DXL_LEFT_ID,  left_rpm,  UNIT_RPM);
     dxl.setGoalVelocity(DXL_RIGHT_ID, right_rpm, UNIT_RPM);
@@ -242,9 +261,9 @@ void stopMotors() {
 //  드라이브 모드 판별 (enum 정의는 파일 상단 참고)
 // ──────────────────────────────────────────────────────────────
 DriveMode getDriveMode() {
-    uint16_t ch5 = rc_ch5;   // ISR이 바꾸는 값이라 한 번만 읽어 비교한다
-    if (ch5 <= RC_MODE_RC_MAX) return MODE_RC;
-    if (ch5 >= RC_MODE_AUTO_MIN && ch5 <= RC_MODE_AUTO_MAX) return MODE_AUTO;
+    uint16_t ch7 = rc_ch7;   // ISR이 바꾸는 값이라 한 번만 읽어 비교한다
+    if (ch7 <= RC_MODE_RC_MAX) return MODE_RC;
+    if (ch7 >= RC_MODE_AUTO_MIN && ch7 <= RC_MODE_AUTO_MAX) return MODE_AUTO;
     return MODE_STOP;
 }
 
@@ -339,16 +358,18 @@ void setup() {
     // RC 핀 인터럽트
     pinMode(RC_CH1_PIN, INPUT);
     pinMode(RC_CH2_PIN, INPUT);
-    pinMode(RC_CH5_PIN, INPUT);
+    pinMode(RC_CH7_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(RC_CH1_PIN), ISR_CH1, CHANGE);
     attachInterrupt(digitalPinToInterrupt(RC_CH2_PIN), ISR_CH2, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(RC_CH5_PIN), ISR_CH5, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(RC_CH7_PIN), ISR_CH7, CHANGE);
 
     // 다이나믹셀
     dxl.begin(DXL_BAUDRATE);
     dxl.setPortProtocolVersion(DXL_PROTOCOL);
     dxl.setOperatingMode(DXL_LEFT_ID,  OP_VELOCITY);
     dxl.setOperatingMode(DXL_RIGHT_ID, OP_VELOCITY);
+    wheel_limit_rpm = min(MAX_RPM, min(velocityLimitRpm(DXL_LEFT_ID),
+                                       velocityLimitRpm(DXL_RIGHT_ID)));
 
     // 목표속도를 먼저 0으로 쓰고 나서 토크를 건다. Goal Velocity는 RAM
     // 레지스터라 MCU만 리셋되고 서보 전원이 유지된 경우 직전 값이 남아

@@ -76,7 +76,7 @@ Arduino IDE 에서 펌웨어를 올린다. 자세한 절차는 [firmware/OpenRB-
 4. 보드를 OpenRB-150 으로 선택하고 업로드.
 5. 업로드 후 **시리얼 모니터를 열지 않는다.** USB 시리얼이 micro-ROS 트랜스포트다.
 
-수신기 배선: CH1 → D6, CH2 → D7, CH5 → D8, GND 공통. 다이나믹셀은 TTL 포트 직결 (ID 1 좌, 2 우).
+수신기 배선: CH1 → D6, CH2 → D7, CH7 → D8, GND 공통. 다이나믹셀은 TTL 포트 직결 (ID 1 좌, 2 우).
 
 ### 2. 로버 컴퓨터 (Jetson)
 
@@ -153,7 +153,7 @@ ros2 launch uel_rover gcs.launch.py         # foxglove_bridge, ws://0.0.0.0:8765
 
 ### 조종기 스위치 (드라이브 모드)
 
-| CH5 스위치 | 모드 | 동작 |
+| CH7 스위치 | 모드 | 동작 |
 |---|---|---|
 | 기본 위치 (≥ 1700 µs) | **STOP** | 즉시 정지 |
 | 가운데 (1400 ~ 1600 µs) | **AUTO** | `/cmd_vel_out` 적용. agent 연결 + 새 명령 수신 + 500 ms 워치독을 모두 만족할 때만 구동 |
