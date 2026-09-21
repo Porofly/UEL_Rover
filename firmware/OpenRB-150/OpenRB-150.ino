@@ -66,8 +66,11 @@
 #define RC_MAX       2000
 #define RC_DEAD_ZONE   50   // 중립 데드존 ±50µs
 
-#define RC_MODE_HIGH 1700   // ch5 >= 1700µs → RC 모드
-#define RC_MODE_LOW  1300   // ch5 <= 1300µs → AUTO 모드
+// CH5 3단 스위치 순서: 기본 위치(2000µs) STOP → 가운데(1500µs) AUTO → 끝(1000µs) RC.
+// 아래 두 구간에 들지 않는 값은 전부 STOP 이다 (애매한 값으로 구동하지 않는다).
+#define RC_MODE_AUTO_MIN 1400   // 1400 <= ch5 <= 1600µs → AUTO 모드
+#define RC_MODE_AUTO_MAX 1600
+#define RC_MODE_RC_MAX   1300   // ch5 <= 1300µs         → RC 모드
 
 // ── 속도 설정 ─────────────────────────────────────────────────
 #define MAX_RPM       50.0f   // 최대 RPM (다이나믹셀 모델에 따라 조정)
@@ -122,7 +125,7 @@ enum AgentState {
 // ──────────────────────────────────────────────────────────────
 volatile uint16_t rc_ch1 = RC_MID;
 volatile uint16_t rc_ch2 = RC_MID;
-volatile uint16_t rc_ch5 = RC_MIN;
+volatile uint16_t rc_ch5 = RC_MAX;   // 수신기 신호가 오기 전에는 STOP
 
 volatile uint32_t ch1_rise, ch2_rise, ch5_rise;
 
@@ -239,8 +242,9 @@ void stopMotors() {
 //  드라이브 모드 판별 (enum 정의는 파일 상단 참고)
 // ──────────────────────────────────────────────────────────────
 DriveMode getDriveMode() {
-    if (rc_ch5 >= RC_MODE_HIGH) return MODE_RC;
-    if (rc_ch5 <= RC_MODE_LOW)  return MODE_AUTO;
+    uint16_t ch5 = rc_ch5;   // ISR이 바꾸는 값이라 한 번만 읽어 비교한다
+    if (ch5 <= RC_MODE_RC_MAX) return MODE_RC;
+    if (ch5 >= RC_MODE_AUTO_MIN && ch5 <= RC_MODE_AUTO_MAX) return MODE_AUTO;
     return MODE_STOP;
 }
 
@@ -381,8 +385,10 @@ void loop() {
         float throttle = rcToNorm(rc_ch2);  // CH2: 스로틀
         float steer    = rcToNorm(rc_ch1);  // CH1: 조향
 
-        float left_rpm  = (throttle - steer) * MAX_RPM;
-        float right_rpm = (throttle + steer) * MAX_RPM;
+        // 스틱 오른쪽 = 펄스폭 증가(steer > 0) = 우회전 → 좌측 바퀴를 빠르게.
+        // AUTO의 angular.z는 반대로 +가 좌회전이라 cmdCallback과 부호가 다르다.
+        float left_rpm  = (throttle + steer) * MAX_RPM;
+        float right_rpm = (throttle - steer) * MAX_RPM;
         setWheelVelocity(left_rpm, right_rpm);
 
     } else if (mode == MODE_AUTO) {
